@@ -241,6 +241,7 @@ function serializeValueToBuffer(target: Uint8Array, offset: number, value: unkno
 		case "bigint":
 			return writeStringAsBytes(target, offset, `${value}`)
 		case "symbol":
+			return writeStringAsBytes(target, offset, String(value))
 		case "function":
 			return writeStringAsBytes(target, offset, `${value}`)
 		case "object": {
