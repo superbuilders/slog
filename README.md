@@ -174,7 +174,7 @@ slog.info("user created", attrs)
 
 ## License
 
-MIT
+0BSD
 
 ## Contributing
 
