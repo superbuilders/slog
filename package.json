@@ -1,0 +1,41 @@
+{
+  "name": "@superbuilders/slog",
+  "version": "1.0.0",
+  "description": "High-performance structured logging library inspired by Go's slog",
+  "module": "dist/index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --minify --sourcemap && tsc --emitDeclarationOnly --outDir dist",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "logging",
+    "structured-logging",
+    "performance",
+    "slog",
+    "high-performance"
+  ],
+  "author": "SuperBuilders",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/superbuilders/slog"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.15.21"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
