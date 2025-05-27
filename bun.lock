@@ -4,10 +4,11 @@
     "": {
       "name": "slog",
       "devDependencies": {
-        "@types/bun": "latest",
+        "@types/bun": "^1.2.14",
+        "@types/node": "^22.15.21",
       },
       "peerDependencies": {
-        "typescript": "^5",
+        "typescript": "^5.8.3",
       },
     },
   },

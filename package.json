@@ -22,18 +22,18 @@
     "slog",
     "high-performance"
   ],
-  "author": "SuperBuilders",
-  "license": "MIT",
+  "author": "Bjorn Pagen",
+  "license": "0BSD",
   "repository": {
     "type": "git",
     "url": "https://github.com/superbuilders/slog"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "^1.2.14",
     "@types/node": "^22.15.21"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.8.3"
   },
   "engines": {
     "node": ">=18"
