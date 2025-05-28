@@ -5,15 +5,15 @@
  * - Zero-allocation byte buffer operations for maximum performance
  * - Structured logging with key-value attributes
  * - Automatic toString() handling for objects with custom toString methods
- * - Configurable log levels and default attributes
+ * - Configurable log levels
  * - Optimized timestamp caching
  * 
  * Basic usage:
  * ```typescript
- * import * as slog from './slog'
+ * import * as logger from './slog'
  * 
- * slog.info("user logged in", { userId: "123", ip: "192.168.1.1" })
- * slog.error("database connection failed", { error: err })
+ * logger.info("user logged in", { userId: "123", ip: "192.168.1.1" })
+ * logger.error("database connection failed", { error: err })
  * ```
  */
 
@@ -22,7 +22,7 @@
  * Log levels following slog convention.
  * Lower numbers indicate more verbose logging.
  */
-export enum LogLevel {
+enum LogLevel {
 	DEBUG = -4,
 	INFO = 0,
 	WARN = 4,
@@ -130,7 +130,6 @@ function updateTimestampCache(): void {
 }
 
 let minimumLevel: LogLevel = LogLevel.INFO
-let defaultAttributes: Record<string, unknown> = {}
 
 function writeBytes(target: Uint8Array, offset: number, source: Uint8Array): number {
 	const remainingSpace = BUFFER_SIZE - offset
@@ -285,42 +284,21 @@ function serializeValueToBuffer(target: Uint8Array, offset: number, value: unkno
 }
 
 function buildAttributesToBuffer(target: Uint8Array, offset: number, attrs?: Record<string, unknown>): number {
+	if (!attrs) return offset
+	
 	let pos = offset
-	let hasAny = false
+	let isFirst = true
 
-	// Zero allocation property iteration
-	for (const key in defaultAttributes) {
-		if (Object.hasOwn(defaultAttributes, key)) {
-			if (hasAny) pos = writeBytes(target, pos, STATIC_BYTES.SPACE)
-			pos = writeStringAsBytes(target, pos, key)
-			pos = writeBytes(target, pos, STATIC_BYTES.EQUALS)
-			pos = serializeValueToBuffer(target, pos, defaultAttributes[key])
-			hasAny = true
-		}
-	}
-
-	if (attrs !== undefined) {
-		for (const key in attrs) {
-			if (Object.hasOwn(attrs, key)) {
-				if (hasAny) pos = writeBytes(target, pos, STATIC_BYTES.SPACE)
-				pos = writeStringAsBytes(target, pos, key)
-				pos = writeBytes(target, pos, STATIC_BYTES.EQUALS)
-				pos = serializeValueToBuffer(target, pos, attrs[key])
-				hasAny = true
-			}
-		}
+	// Write passed attributes only
+	for (const key in attrs) {
+		if (!isFirst) pos = writeBytes(target, pos, STATIC_BYTES.SPACE)
+		pos = writeStringAsBytes(target, pos, key)
+		pos = writeBytes(target, pos, STATIC_BYTES.EQUALS)
+		pos = serializeValueToBuffer(target, pos, attrs[key])
+		isFirst = false
 	}
 
 	return pos
-}
-
-function hasOwnProperties(obj: Record<string, unknown>): boolean {
-	for (const key in obj) {
-		if (Object.hasOwn(obj, key)) {
-			return true
-		}
-	}
-	return false
 }
 
 function flushBuffer(length: number, isError: boolean): void {
@@ -336,76 +314,8 @@ function flushBuffer(length: number, isError: boolean): void {
  * Set the minimum log level. Messages below this level will be ignored.
  * @param level The minimum log level to output
  */
-export function setDefaultLogLevel(level: LogLevel): void {
+export function setDefaultLogLevel(level: typeof DEBUG | typeof INFO | typeof WARN | typeof ERROR): void {
 	minimumLevel = level
-}
-
-/**
- * Set default attributes that will be included in all log messages.
- * Replaces any existing default attributes.
- * @param attributes Key-value pairs to include in all log messages
- */
-export function setDefaultAttributes(attributes: Record<string, unknown>): void {
-	defaultAttributes = attributes
-}
-
-/**
- * Add default attributes that will be included in all log messages.
- * Merges with existing default attributes.
- * @param attributes Key-value pairs to include in all log messages
- */
-export function addDefaultAttributes(attributes: Record<string, unknown>): void {
-	for (const key in attributes) {
-		if (Object.hasOwn(attributes, key)) {
-			defaultAttributes[key] = attributes[key]
-		}
-	}
-}
-
-/**
- * Log a message at the specified level with optional structured attributes.
- * @param level The log level
- * @param message The log message
- * @param attributes Optional key-value pairs for structured logging
- */
-export function log(level: LogLevel, message: string, attributes?: Record<string, unknown>): void {
-	if (level < minimumLevel) return
-
-	updateTimestampCache()
-
-	let pos = 0
-	pos = writeBytes(logView, pos, cachedTimestampBytes.subarray(0, timestampLength))
-	pos = writeBytes(logView, pos, cachedSecondsBytes.subarray(0, secondsLength))
-
-	if (level === LogLevel.DEBUG) {
-		pos = writeBytes(logView, pos, STATIC_BYTES.DEBUG)
-	} else if (level === LogLevel.INFO) {
-		pos = writeBytes(logView, pos, STATIC_BYTES.INFO)
-	} else if (level === LogLevel.WARN) {
-		pos = writeBytes(logView, pos, STATIC_BYTES.WARN)
-	} else {
-		pos = writeBytes(logView, pos, STATIC_BYTES.ERROR)
-	}
-
-	pos = writeStringAsBytes(logView, pos, message)
-
-	const hasAttrs =
-		hasOwnProperties(defaultAttributes) || (attributes !== undefined && hasOwnProperties(attributes))
-	if (hasAttrs) {
-		pos = writeBytes(logView, pos, STATIC_BYTES.SPACE)
-		pos = buildAttributesToBuffer(logView, pos, attributes)
-	}
-
-	// Always ensure we end with a newline, even if truncated
-	if (pos < BUFFER_SIZE) {
-		pos = writeBytes(logView, pos, STATIC_BYTES.NEWLINE)
-	} else {
-		// Buffer is full, overwrite last byte with newline
-		logView[BUFFER_SIZE - 1] = STATIC_BYTES.NEWLINE[0]!
-		pos = BUFFER_SIZE
-	}
-
-	flushBuffer(pos, level >= LogLevel.WARN)
 }
 
 /**
@@ -424,9 +334,7 @@ export function debug(message: string, attributes?: Record<string, unknown>): vo
 	pos = writeBytes(logView, pos, STATIC_BYTES.DEBUG)
 	pos = writeStringAsBytes(logView, pos, message)
 
-	const hasAttrs =
-		hasOwnProperties(defaultAttributes) || (attributes !== undefined && hasOwnProperties(attributes))
-	if (hasAttrs) {
+	if (attributes) {
 		pos = writeBytes(logView, pos, STATIC_BYTES.SPACE)
 		pos = buildAttributesToBuffer(logView, pos, attributes)
 	}
@@ -459,9 +367,7 @@ export function info(message: string, attributes?: Record<string, unknown>): voi
 	pos = writeBytes(logView, pos, STATIC_BYTES.INFO)
 	pos = writeStringAsBytes(logView, pos, message)
 
-	const hasAttrs =
-		hasOwnProperties(defaultAttributes) || (attributes !== undefined && hasOwnProperties(attributes))
-	if (hasAttrs) {
+	if (attributes) {
 		pos = writeBytes(logView, pos, STATIC_BYTES.SPACE)
 		pos = buildAttributesToBuffer(logView, pos, attributes)
 	}
@@ -494,9 +400,7 @@ export function warn(message: string, attributes?: Record<string, unknown>): voi
 	pos = writeBytes(logView, pos, STATIC_BYTES.WARN)
 	pos = writeStringAsBytes(logView, pos, message)
 
-	const hasAttrs =
-		hasOwnProperties(defaultAttributes) || (attributes !== undefined && hasOwnProperties(attributes))
-	if (hasAttrs) {
+	if (attributes) {
 		pos = writeBytes(logView, pos, STATIC_BYTES.SPACE)
 		pos = buildAttributesToBuffer(logView, pos, attributes)
 	}
@@ -529,9 +433,7 @@ export function error(message: string, attributes?: Record<string, unknown>): vo
 	pos = writeBytes(logView, pos, STATIC_BYTES.ERROR)
 	pos = writeStringAsBytes(logView, pos, message)
 
-	const hasAttrs =
-		hasOwnProperties(defaultAttributes) || (attributes !== undefined && hasOwnProperties(attributes))
-	if (hasAttrs) {
+	if (attributes) {
 		pos = writeBytes(logView, pos, STATIC_BYTES.SPACE)
 		pos = buildAttributesToBuffer(logView, pos, attributes)
 	}

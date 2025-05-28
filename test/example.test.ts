@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeEach, afterEach, spyOn } from "bun:test";
-import * as slog from "../src/index";
+import * as logger from "../src/index";
 
 // Example usage patterns that users can reference
 describe("slog library examples", () => {
@@ -8,8 +8,10 @@ describe("slog library examples", () => {
   let outputs: string[] = [];
 
   beforeEach(() => {
+    // Reset state
     outputs = [];
     
+    // Setup mocks
     stdoutSpy = spyOn(process.stdout, "write").mockImplementation((data: any) => {
       outputs.push(Buffer.from(data).toString());
       return true;
@@ -20,8 +22,8 @@ describe("slog library examples", () => {
       return true;
     });
     
-    slog.setDefaultLogLevel(slog.INFO);
-    slog.setDefaultAttributes({});
+    // Reset logger to default state
+    logger.setDefaultLogLevel(logger.INFO);
   });
 
   afterEach(() => {
@@ -31,9 +33,9 @@ describe("slog library examples", () => {
 
   test("Basic usage example", () => {
     // Basic logging
-    slog.info("Application started");
-    slog.warn("This is a warning");
-    slog.error("Something went wrong");
+    logger.info("Application started");
+    logger.warn("This is a warning");
+    logger.error("Something went wrong");
 
     expect(outputs).toHaveLength(3);
     expect(outputs[0]).toContain("INFO Application started");
@@ -43,7 +45,7 @@ describe("slog library examples", () => {
 
   test("Structured logging example", () => {
     // Structured logging with attributes
-    slog.info("User logged in", {
+    logger.info("User logged in", {
       userId: "12345",
       username: "john_doe",
       ip: "192.168.1.100",
@@ -60,43 +62,48 @@ describe("slog library examples", () => {
   });
 
   test("Web API logging example", () => {
-    // Set up service-wide defaults
-    slog.setDefaultAttributes({
+    // Request logging
+    logger.info("HTTP request received", {
+      method: "POST",
+      path: "/api/users",
+      contentLength: 1024,
+      correlationId: "req-abc-123",
       service: "user-api",
       version: "1.2.3",
       environment: "production"
     });
 
-    // Request logging
-    slog.info("HTTP request received", {
-      method: "POST",
-      path: "/api/users",
-      contentLength: 1024,
-      correlationId: "req-abc-123"
-    });
-
     // Business logic logging
-    slog.info("User validation successful", {
+    logger.info("User validation successful", {
       userId: "user-456",
       validationTime: 12.5,
-      correlationId: "req-abc-123"
+      correlationId: "req-abc-123",
+      service: "user-api",
+      version: "1.2.3",
+      environment: "production"
     });
 
     // Database operation
-    slog.info("Database query executed", {
+    logger.info("Database query executed", {
       query: "SELECT * FROM users WHERE id = ?",
       params: ["user-456"],
       duration: 25.3,
       rowCount: 1,
-      correlationId: "req-abc-123"
+      correlationId: "req-abc-123",
+      service: "user-api",
+      version: "1.2.3",
+      environment: "production"
     });
 
     // Response logging
-    slog.info("HTTP response sent", {
+    logger.info("HTTP response sent", {
       statusCode: 200,
       contentLength: 512,
       duration: 45.8,
-      correlationId: "req-abc-123"
+      correlationId: "req-abc-123",
+      service: "user-api",
+      version: "1.2.3",
+      environment: "production"
     });
 
     expect(outputs).toHaveLength(4);
@@ -108,17 +115,17 @@ describe("slog library examples", () => {
   });
 
   test("Error handling and debugging example", () => {
-    slog.setDefaultLogLevel(slog.DEBUG);
+    logger.setDefaultLogLevel(logger.DEBUG);
 
     try {
       // Simulate some operation
-      slog.debug("Starting database operation", { operation: "user-update" });
+      logger.debug("Starting database operation", { operation: "user-update" });
       
       // Simulate an error
       throw new Error("Database connection timeout");
       
     } catch (error) {
-      slog.error("Operation failed", {
+      logger.error("Operation failed", {
         error: error,
         operation: "user-update",
         retryCount: 0,
@@ -126,7 +133,7 @@ describe("slog library examples", () => {
       });
       
       // Log recovery attempt
-      slog.warn("Attempting retry", {
+      logger.warn("Attempting retry", {
         operation: "user-update",
         retryCount: 1,
         backoffMs: 1000
@@ -144,7 +151,7 @@ describe("slog library examples", () => {
     // Simulate some work
     const workTime = 10; // ms
     
-    slog.info("Performance metrics", {
+    logger.info("Performance metrics", {
       operation: "data-processing",
       recordsProcessed: 1000,
       duration: workTime,
@@ -162,24 +169,24 @@ describe("slog library examples", () => {
 
   test("Configuration and level management example", () => {
     // Start with INFO level
-    slog.setDefaultLogLevel(slog.INFO);
+    logger.setDefaultLogLevel(logger.INFO);
     
-    slog.debug("This won't appear");
-    slog.info("This will appear");
+    logger.debug("This won't appear");
+    logger.info("This will appear");
     
     // Switch to DEBUG level for troubleshooting
-    slog.setDefaultLogLevel(slog.DEBUG);
+    logger.setDefaultLogLevel(logger.DEBUG);
     
-    slog.debug("Now this appears");
-    slog.info("This still appears");
+    logger.debug("Now this appears");
+    logger.info("This still appears");
     
     // Switch to ERROR level for production
-    slog.setDefaultLogLevel(slog.ERROR);
+    logger.setDefaultLogLevel(logger.ERROR);
     
-    slog.debug("This won't appear");
-    slog.info("This won't appear");
-    slog.warn("This won't appear");
-    slog.error("Only this appears");
+    logger.debug("This won't appear");
+    logger.info("This won't appear");
+    logger.warn("This won't appear");
+    logger.error("Only this appears");
 
     // Should have: 1 info + 1 debug + 1 info + 1 error = 4 total
     expect(outputs).toHaveLength(4);
@@ -219,7 +226,7 @@ describe("slog library examples", () => {
       }
     };
 
-    slog.info("Complex operation completed", complexData);
+    logger.info("Complex operation completed", complexData);
 
     expect(outputs).toHaveLength(1);
     const output = outputs[0];
@@ -237,7 +244,7 @@ describe("slog library examples", () => {
     
     for (let i = 0; i < events; i++) {
       if (i % 10 === 0) {
-        slog.info("Batch processed", {
+        logger.info("Batch processed", {
           batchId: Math.floor(i / 10),
           itemsProcessed: 10,
           totalProcessed: i + 10
@@ -245,7 +252,7 @@ describe("slog library examples", () => {
       }
       
       if (Math.random() < 0.1) { // 10% chance of warning
-        slog.warn("Processing delay detected", {
+        logger.warn("Processing delay detected", {
           itemId: i,
           expectedTime: 1,
           actualTime: 2.5
@@ -255,7 +262,7 @@ describe("slog library examples", () => {
     
     const end = performance.now();
     
-    slog.info("Processing complete", {
+    logger.info("Processing complete", {
       totalItems: events,
       totalTime: end - start,
       throughput: events / (end - start),

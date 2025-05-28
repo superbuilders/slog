@@ -7,7 +7,7 @@ High-performance structured logging library inspired by Go's slog.
 - **Zero-allocation byte buffer operations** for maximum performance
 - **Structured logging** with key-value attributes  
 - **Automatic toString() handling** for objects with custom toString methods
-- **Configurable log levels** and default attributes
+- **Configurable log levels** 
 - **Optimized timestamp caching** to minimize date formatting overhead
 - **Built for Node.js and Bun** with ESNext targeting
 
@@ -22,17 +22,14 @@ bun add @superbuilders/slog
 ## Quick Start
 
 ```typescript
-import * as slog from '@superbuilders/slog'
+import * as logger from '@superbuilders/slog'
 
 // Basic logging
-slog.info("user logged in", { userId: "123", ip: "192.168.1.1" })
-slog.error("database connection failed", { error: err })
+logger.info("user logged in", { userId: "123", ip: "192.168.1.1" })
+logger.error("database connection failed", { error: err })
 
 // Set log level
-slog.setDefaultLogLevel(slog.DEBUG)
-
-// Set default attributes for all logs
-slog.setDefaultAttributes({ service: "api", version: "1.0.0" })
+logger.setDefaultLogLevel(logger.DEBUG)
 ```
 
 ## API Reference
@@ -40,51 +37,30 @@ slog.setDefaultAttributes({ service: "api", version: "1.0.0" })
 ### Log Levels
 
 ```typescript
-import { LogLevel, DEBUG, INFO, WARN, ERROR } from '@superbuilders/slog'
+import { DEBUG, INFO, WARN, ERROR } from '@superbuilders/slog'
 
 // Available levels (lower numbers = more verbose)
-LogLevel.DEBUG  // -4
-LogLevel.INFO   // 0  (default)
-LogLevel.WARN   // 4
-LogLevel.ERROR  // 8
-
-// Convenient constants
-DEBUG   // Same as LogLevel.DEBUG
-INFO    // Same as LogLevel.INFO
-WARN    // Same as LogLevel.WARN  
-ERROR   // Same as LogLevel.ERROR
+DEBUG   // -4
+INFO    // 0  (default)
+WARN    // 4
+ERROR   // 8
 ```
 
 ### Logging Functions
 
 ```typescript
 // Level-specific functions
-slog.debug("debug message", { key: "value" })
-slog.info("info message", { key: "value" })
-slog.warn("warning message", { key: "value" })
-slog.error("error message", { key: "value" })
-
-// Generic log function
-slog.log(LogLevel.INFO, "message", { key: "value" })
+logger.debug("debug message", { key: "value" })
+logger.info("info message", { key: "value" })
+logger.warn("warning message", { key: "value" })
+logger.error("error message", { key: "value" })
 ```
 
 ### Configuration
 
 ```typescript
 // Set minimum log level
-slog.setDefaultLogLevel(LogLevel.WARN) // Only WARN and ERROR will be output
-
-// Set default attributes (replaces existing)
-slog.setDefaultAttributes({ 
-  service: "api",
-  version: "1.0.0" 
-})
-
-// Add default attributes (merges with existing)
-slog.addDefaultAttributes({ 
-  environment: "production",
-  region: "us-east-1" 
-})
+logger.setDefaultLogLevel(WARN) // Only WARN and ERROR will be output
 ```
 
 ## Performance Features
@@ -118,13 +94,13 @@ try {
   await riskyOperation()
 } catch (error) {
   // Error objects automatically use toString()
-  slog.error("operation failed", { error, userId: "123" })
+  logger.error("operation failed", { error, userId: "123" })
 }
 ```
 
 ### Structured Data
 ```typescript
-slog.info("user action", {
+logger.info("user action", {
   userId: "123",
   action: "purchase", 
   items: ["item1", "item2"],
@@ -141,7 +117,7 @@ const start = Date.now()
 await longRunningOperation()
 const duration = Date.now() - start
 
-slog.info("operation completed", { 
+logger.info("operation completed", { 
   operation: "data_export",
   duration,
   recordCount: 1500
@@ -153,8 +129,7 @@ slog.info("operation completed", {
 Full TypeScript support with comprehensive type definitions:
 
 ```typescript
-import * as slog from '@superbuilders/slog'
-import type { LogLevel } from '@superbuilders/slog'
+import * as logger from '@superbuilders/slog'
 
 // Type-safe attribute objects
 interface UserAttributes {
@@ -169,7 +144,7 @@ const attrs: UserAttributes = {
   role: "admin"
 }
 
-slog.info("user created", attrs)
+logger.info("user created", attrs)
 ```
 
 ## License

@@ -180,19 +180,22 @@ When adding features to slog, ensure tests cover:
 ### Test Structure
 ```typescript
 import { expect, test, describe, beforeEach, afterEach, spyOn } from "bun:test";
-import * as slog from "./index";
+import * as logger from "./index";
 
 describe("Feature name", () => {
   let stdoutSpy: any;
+  let stderrSpy: any;
   
   beforeEach(() => {
     stdoutSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
-    slog.setDefaultLogLevel(slog.INFO);
-    slog.setDefaultAttributes({});
+    stderrSpy = spyOn(process.stderr, "write").mockImplementation(() => true);
+    
+    logger.setDefaultLogLevel(logger.INFO);
   });
 
   afterEach(() => {
     stdoutSpy.mockRestore();
+    stderrSpy.mockRestore();
   });
 
   test("should do something", () => {

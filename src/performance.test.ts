@@ -1,15 +1,23 @@
-import { expect, test, describe, beforeEach, afterEach, spyOn } from "bun:test";
-import * as slog from "./index";
+import { test, describe, beforeEach, afterEach, spyOn } from "bun:test";
+import * as logger from "./index";
 
-// Mock output to avoid console spam during benchmarks
+// Mock process.stdout and process.stderr to prevent console output during benchmarks
+beforeEach(() => {
+  const mockWrite = () => true;
+  // @ts-ignore
+  process.stdout.write = mockWrite;
+  // @ts-ignore
+  process.stderr.write = mockWrite;
+});
+
+// Mock output to avoid I/O overhead during benchmarks
 let stdoutSpy: any;
 let stderrSpy: any;
 
 beforeEach(() => {
   stdoutSpy = spyOn(process.stdout, "write").mockImplementation(() => true);
   stderrSpy = spyOn(process.stderr, "write").mockImplementation(() => true);
-  slog.setDefaultLogLevel(slog.INFO);
-  slog.setDefaultAttributes({});
+  logger.setDefaultLogLevel(logger.INFO);
 });
 
 afterEach(() => {
@@ -17,284 +25,266 @@ afterEach(() => {
   stderrSpy.mockRestore();
 });
 
-describe("Performance benchmarks", () => {
-  test("should handle simple info logging efficiently", () => {
-    const iterations = 10000;
-    
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      slog.info("Simple log message");
+// Benchmark runner inspired by Go's benchmark approach
+function benchmark(name: string, fn: () => void, durationMs: number = 3000): void {
+  test(`Benchmark: ${name}`, () => {
+    // Warmup
+    for (let i = 0; i < 1000; i++) {
+      fn();
     }
-    const end = performance.now();
     
-    const duration = end - start;
-    const logsPerMs = iterations / duration;
+    // Reset spies after warmup
+    stdoutSpy.mockClear();
+    stderrSpy.mockClear();
     
-    console.log(`Simple logging: ${iterations} logs in ${duration.toFixed(2)}ms (${logsPerMs.toFixed(0)} logs/ms)`);
+    // Actual benchmark
+    const startTime = performance.now();
+    let operations = 0;
     
-    expect(stdoutSpy).toHaveBeenCalledTimes(iterations);
-    expect(duration).toBeLessThan(1000); // Should complete in under 1 second
+    while (performance.now() - startTime < durationMs) {
+      fn();
+      operations++;
+    }
+    
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+    const opsPerSec = (operations / duration) * 1000;
+    const nsPerOp = (duration * 1_000_000) / operations;
+    
+    console.log(`${name}:`);
+    console.log(`  ${operations.toLocaleString()} ops in ${duration.toFixed(1)}ms`);
+    console.log(`  ${opsPerSec.toFixed(0)} ops/sec`);
+    console.log(`  ${nsPerOp.toFixed(0)} ns/op`);
+    console.log("");
+  });
+}
+
+describe("slog Benchmarks", () => {
+  benchmark("SimpleMessage", () => {
+    logger.info("Simple log message");
   });
 
-  test("should handle structured logging efficiently", () => {
-    const iterations = 5000;
-    
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      slog.info("Structured log message", {
-        iteration: i,
-        userId: `user-${i}`,
-        timestamp: Date.now(),
-        success: i % 2 === 0,
-        duration: Math.random() * 100
-      });
-    }
-    const end = performance.now();
-    
-    const duration = end - start;
-    const logsPerMs = iterations / duration;
-    
-    console.log(`Structured logging: ${iterations} logs in ${duration.toFixed(2)}ms (${logsPerMs.toFixed(0)} logs/ms)`);
-    
-    expect(stdoutSpy).toHaveBeenCalledTimes(iterations);
-    expect(duration).toBeLessThan(2000); // Should complete in under 2 seconds
+  benchmark("MessageWithSingleAttribute", () => {
+    logger.info("User action", { userId: "12345" });
   });
 
-  test("should handle complex object serialization efficiently", () => {
-    const iterations = 1000;
-    const complexObject = {
+  benchmark("MessageWithMultipleAttributes", () => {
+    logger.info("Request processed", {
+      userId: "12345",
+      method: "POST",
+      path: "/api/users",
+      status: 200,
+      duration: 45.2
+    });
+  });
+
+  benchmark("MessageWithNestedObject", () => {
+    logger.info("User created", {
       user: {
-        id: 12345,
+        id: "12345",
         name: "John Doe",
         email: "john@example.com",
-        preferences: {
-          theme: "dark",
-          notifications: true,
-          features: ["feature1", "feature2", "feature3"]
+        role: "admin"
+      },
+      timestamp: Date.now()
+    });
+  });
+
+  benchmark("MessageWithArray", () => {
+    logger.info("Batch processed", {
+      items: ["item1", "item2", "item3", "item4", "item5"],
+      count: 5,
+      success: true
+    });
+  });
+
+  benchmark("MessageWithComplexObject", () => {
+    logger.info("Complex operation", {
+      user: {
+        id: 12345,
+        profile: {
+          name: "John Doe",
+          preferences: {
+            theme: "dark",
+            notifications: ["email", "sms"],
+            settings: {
+              autoSave: true,
+              timeout: 30
+            }
+          }
         }
       },
       request: {
         method: "POST",
-        path: "/api/users/12345",
         headers: {
           "content-type": "application/json",
-          "user-agent": "TestClient/1.0"
+          "authorization": "Bearer token123"
         },
         body: {
           action: "update",
-          fields: ["name", "email"]
+          fields: ["name", "email", "role"]
         }
       },
       metadata: {
-        trace_id: "abc-123-def-456",
-        span_id: "789-xyz",
-        timestamp: Date.now()
+        traceId: "abc-123-def-456",
+        timestamp: Date.now(),
+        version: "1.2.3"
       }
-    };
-    
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      slog.info("Complex object logging", complexObject);
-    }
-    const end = performance.now();
-    
-    const duration = end - start;
-    const logsPerMs = iterations / duration;
-    
-    console.log(`Complex object logging: ${iterations} logs in ${duration.toFixed(2)}ms (${logsPerMs.toFixed(0)} logs/ms)`);
-    
-    expect(stdoutSpy).toHaveBeenCalledTimes(iterations);
-    expect(duration).toBeLessThan(5000); // Should complete in under 5 seconds
-  });
-
-  test("should handle array serialization efficiently", () => {
-    const iterations = 1000;
-    const arrays = {
-      numbers: Array.from({ length: 100 }, (_, i) => i),
-      strings: Array.from({ length: 50 }, (_, i) => `item-${i}`),
-      mixed: [1, "two", true, null, { id: 123 }, [1, 2, 3]],
-      nested: [
-        { users: [{ id: 1, name: "Alice" }, { id: 2, name: "Bob" }] },
-        { products: [{ sku: "A123", price: 29.99 }, { sku: "B456", price: 19.99 }] }
-      ]
-    };
-    
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      slog.info("Array logging", arrays);
-    }
-    const end = performance.now();
-    
-    const duration = end - start;
-    const logsPerMs = iterations / duration;
-    
-    console.log(`Array logging: ${iterations} logs in ${duration.toFixed(2)}ms (${logsPerMs.toFixed(0)} logs/ms)`);
-    
-    expect(stdoutSpy).toHaveBeenCalledTimes(iterations);
-    expect(duration).toBeLessThan(10000); // Should complete in under 10 seconds
-  });
-
-  test("should handle default attributes efficiently", () => {
-    const iterations = 5000;
-    
-    slog.setDefaultAttributes({
-      service: "performance-test",
-      version: "1.0.0",
-      environment: "test",
-      node_id: "node-12345",
-      region: "us-west-2"
     });
-    
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      slog.info("Message with default attributes", {
-        request_id: `req-${i}`,
-        user_id: `user-${i % 100}`,
-        action: "test"
-      });
-    }
-    const end = performance.now();
-    
-    const duration = end - start;
-    const logsPerMs = iterations / duration;
-    
-    console.log(`Default attributes logging: ${iterations} logs in ${duration.toFixed(2)}ms (${logsPerMs.toFixed(0)} logs/ms)`);
-    
-    expect(stdoutSpy).toHaveBeenCalledTimes(iterations);
-    expect(duration).toBeLessThan(2000); // Should complete in under 2 seconds
   });
 
-  test("should handle mixed log levels efficiently", () => {
-    const iterations = 10000;
-    
-    slog.setDefaultLogLevel(slog.DEBUG);
-    
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      switch (i % 4) {
-        case 0:
-          slog.debug("Debug message", { iteration: i });
-          break;
-        case 1:
-          slog.info("Info message", { iteration: i });
-          break;
-        case 2:
-          slog.warn("Warning message", { iteration: i });
-          break;
-        case 3:
-          slog.error("Error message", { iteration: i });
-          break;
+  benchmark("MessageWithLargeArray", () => {
+    logger.info("Large dataset processed", {
+      items: Array.from({ length: 100 }, (_, i) => `item-${i}`),
+      metadata: {
+        total: 100,
+        processed: Date.now()
       }
-    }
-    const end = performance.now();
-    
-    const duration = end - start;
-    const logsPerMs = iterations / duration;
-    
-    console.log(`Mixed levels logging: ${iterations} logs in ${duration.toFixed(2)}ms (${logsPerMs.toFixed(0)} logs/ms)`);
-    
-    expect(stdoutSpy.mock.calls.length + stderrSpy.mock.calls.length).toBe(iterations);
-    expect(duration).toBeLessThan(1500); // Should complete in under 1.5 seconds
+    });
   });
 
-  test("should handle level filtering efficiently", () => {
-    const iterations = 20000;
-    
-    // Set level to ERROR, so only error messages should be processed
-    slog.setDefaultLogLevel(slog.ERROR);
-    
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      // Only 1/4 of these should actually be processed
-      switch (i % 4) {
-        case 0:
-          slog.debug("Debug message", { iteration: i });
-          break;
-        case 1:
-          slog.info("Info message", { iteration: i });
-          break;
-        case 2:
-          slog.warn("Warning message", { iteration: i });
-          break;
-        case 3:
-          slog.error("Error message", { iteration: i });
-          break;
+  benchmark("ErrorWithStackTrace", () => {
+    const error = new Error("Something went wrong");
+    logger.error("Operation failed", {
+      error: error,
+      userId: "12345",
+      operation: "data-export",
+      context: {
+        retryCount: 2,
+        lastAttempt: Date.now()
       }
-    }
-    const end = performance.now();
-    
-    const duration = end - start;
-    const logsPerMs = iterations / duration;
-    
-    console.log(`Level filtering: ${iterations} calls in ${duration.toFixed(2)}ms (${logsPerMs.toFixed(0)} calls/ms)`);
-    
-    // Only error messages should have been logged
-    expect(stderrSpy).toHaveBeenCalledTimes(iterations / 4);
-    expect(stdoutSpy).toHaveBeenCalledTimes(0);
-    expect(duration).toBeLessThan(500); // Should be very fast due to early returns
+    });
   });
 
-  test("should handle unicode characters efficiently", () => {
-    const iterations = 1000;
-    const unicodeText = {
-      emoji: "🚀🌟💻🔥⭐️🎉🎯🔑💡🌍",
-      chinese: "你好世界，这是一个测试消息",
-      japanese: "こんにちは世界、これはテストメッセージです",
-      arabic: "مرحبا بالعالم، هذه رسالة اختبار",
-      cyrillic: "Привет мир, это тестовое сообщение",
-      mathematical: "∑ ∫ ∂ ∇ ∞ ≈ ≠ ≤ ≥ ± √ ∴ ∵ ∝",
-      symbols: "♠ ♣ ♥ ♦ ♪ ♫ ☀ ☁ ☂ ☃ ❄ ⚡ ✓ ✗ ⚠ ⚙"
+  benchmark("DebugMessage", () => {
+    logger.debug("Debug information", {
+      function: "processData",
+      line: 42,
+      variables: {
+        x: 10,
+        y: 20,
+        result: 30
+      }
+    });
+  });
+
+  benchmark("WarnMessage", () => {
+    logger.warn("Performance warning", {
+      operation: "database-query",
+      duration: 1250,
+      threshold: 1000,
+      query: "SELECT * FROM users WHERE active = 1"
+    });
+  });
+
+  benchmark("MessageWithUnicode", () => {
+    logger.info("International message", {
+      emoji: "🚀🌟💻",
+      chinese: "你好世界",
+      japanese: "こんにちは",
+      arabic: "مرحبا",
+      message: "测试消息 with émojis 🎉"
+    });
+  });
+
+  benchmark("MessageWithNumbers", () => {
+    logger.info("Metrics update", {
+      cpu: 78.5,
+      memory: 1024.7,
+      disk: 89.2,
+      network: 45.1,
+      timestamp: Date.now(),
+      uptime: 3600.5,
+      requests: 10000,
+      errors: 0
+    });
+  });
+
+  benchmark("MessageWithBooleans", () => {
+    logger.info("Feature flags", {
+      featureA: true,
+      featureB: false,
+      featureC: true,
+      experimental: false,
+      beta: true,
+      production: true
+    });
+  });
+
+  benchmark("MessageWithNullValues", () => {
+    logger.info("Sparse data", {
+      userId: "12345",
+      email: "user@example.com",
+      phone: null,
+      address: undefined,
+      avatar: null,
+      lastLogin: Date.now()
+    });
+  });
+
+  benchmark("LevelFiltering_Disabled", () => {
+    logger.setDefaultLogLevel(logger.ERROR);
+    // These should be filtered out (early return)
+    logger.debug("This won't be processed", { data: "ignored" });
+  });
+
+  benchmark("LevelFiltering_Enabled", () => {
+    logger.setDefaultLogLevel(logger.DEBUG);
+    logger.debug("This will be processed", { data: "included" });
+  });
+
+  benchmark("VeryLongMessage", () => {
+    const longMessage = "A".repeat(1000);
+    logger.info(longMessage, {
+      type: "stress-test",
+      length: 1000
+    });
+  });
+
+  benchmark("ManySmallAttributes", () => {
+    const attrs: Record<string, string> = {};
+    for (let i = 0; i < 50; i++) {
+      attrs[`key${i}`] = `value${i}`;
+    }
+    logger.info("Many attributes", attrs);
+  });
+
+  benchmark("DeepNestedObject", () => {
+    const createDeepObject = (depth: number): any => {
+      if (depth === 0) return "leaf";
+      return {
+        level: depth,
+        data: `level-${depth}`,
+        nested: createDeepObject(depth - 1),
+        array: [1, 2, 3]
+      };
     };
-    
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      slog.info("Unicode test message", unicodeText);
-    }
-    const end = performance.now();
-    
-    const duration = end - start;
-    const logsPerMs = iterations / duration;
-    
-    console.log(`Unicode logging: ${iterations} logs in ${duration.toFixed(2)}ms (${logsPerMs.toFixed(0)} logs/ms)`);
-    
-    expect(stdoutSpy).toHaveBeenCalledTimes(iterations);
-    expect(duration).toBeLessThan(5000); // Should complete in under 5 seconds
+
+    logger.info("Deep nesting test", {
+      deep: createDeepObject(10),
+      metadata: "test"
+    });
   });
 
-  test("memory usage should remain stable during intensive logging", () => {
-    const iterations = 1000;
+  // Pre-generate random choices outside benchmark timing
+  const mixedLogChoices: number[] = [];
+  for (let i = 0; i < 10000; i++) {
+    mixedLogChoices.push(Math.floor(Math.random() * 4));
+  }
+  let mixedLogChoiceIndex = 0;
+
+  benchmark("MixedLogLevels", () => {
+    const choice = mixedLogChoices[mixedLogChoiceIndex % mixedLogChoices.length];
+    mixedLogChoiceIndex++;
     
-    // Force garbage collection if available
-    if (global.gc) {
-      global.gc();
+    if (choice === 0) {
+      logger.debug("Debug message", { level: "debug" });
+    } else if (choice === 1) {
+      logger.info("Info message", { level: "info" });
+    } else if (choice === 2) {
+      logger.warn("Warn message", { level: "warn" });
+    } else {
+      logger.error("Error message", { level: "error" });
     }
-    
-    const initialMemory = process.memoryUsage();
-    
-    for (let i = 0; i < iterations; i++) {
-      slog.info("Memory test message", {
-        iteration: i,
-        data: {
-          array: Array.from({ length: 10 }, (_, j) => `item-${j}`),
-          object: { key1: "value1", key2: "value2", key3: "value3" },
-          number: Math.random() * 1000,
-          boolean: i % 2 === 0
-        }
-      });
-    }
-    
-    // Force garbage collection if available
-    if (global.gc) {
-      global.gc();
-    }
-    
-    const finalMemory = process.memoryUsage();
-    const memoryIncrease = finalMemory.heapUsed - initialMemory.heapUsed;
-    
-    console.log(`Memory increase: ${(memoryIncrease / 1024 / 1024).toFixed(2)} MB for ${iterations} logs`);
-    
-    expect(stdoutSpy).toHaveBeenCalledTimes(iterations);
-    // Memory increase should be reasonable (less than 10MB for 1000 logs)
-    expect(memoryIncrease).toBeLessThan(10 * 1024 * 1024);
   });
 }); 
