@@ -1,22 +1,21 @@
 /**
  * High-performance structured logging library inspired by Go's slog.
- * 
+ *
  * Features:
  * - Zero-allocation byte buffer operations for maximum performance
  * - Structured logging with key-value attributes
  * - Automatic toString() handling for objects with custom toString methods
  * - Configurable log levels
  * - Optimized timestamp caching
- * 
+ *
  * Basic usage:
  * ```typescript
  * import * as logger from './slog'
- * 
+ *
  * logger.info("user logged in", { userId: "123", ip: "192.168.1.1" })
  * logger.error("database connection failed", { error: err })
  * ```
  */
-
 
 /**
  * Log levels following slog convention.
@@ -33,7 +32,7 @@ enum LogLevel {
  * Convenient constants for log levels
  */
 export const DEBUG = LogLevel.DEBUG
-export const INFO = LogLevel.INFO  
+export const INFO = LogLevel.INFO
 export const WARN = LogLevel.WARN
 export const ERROR = LogLevel.ERROR
 
@@ -66,8 +65,6 @@ const STATIC_BYTES = {
 	MINUS: encoder.encode("-"),
 	DOT: encoder.encode(".")
 }
-
-
 
 const cachedTimestampBytes = new Uint8Array(19)
 const cachedSecondsBytes = new Uint8Array(2)
@@ -136,7 +133,7 @@ function writeBytes(target: Uint8Array, offset: number, source: Uint8Array): num
 	if (remainingSpace <= 0) {
 		return offset
 	}
-	
+
 	const bytesToWrite = Math.min(source.length, remainingSpace)
 	target.set(source.subarray(0, bytesToWrite), offset)
 	return offset + bytesToWrite
@@ -174,28 +171,29 @@ function writeStringAsBytes(target: Uint8Array, offset: number, str: string): nu
 
 function writeNumberAsBytes(target: Uint8Array, offset: number, num: number): number {
 	// Handle special cases
-	if (num !== num) return writeStringAsBytes(target, offset, "NaN") // NaN check
-	if (num === Infinity) return writeStringAsBytes(target, offset, "Infinity")
-	if (num === -Infinity) return writeStringAsBytes(target, offset, "-Infinity")
-	
+	if (Number.isNaN(num)) return writeStringAsBytes(target, offset, "NaN") // NaN check
+	if (num === Number.POSITIVE_INFINITY) return writeStringAsBytes(target, offset, "Infinity")
+	if (num === Number.NEGATIVE_INFINITY) return writeStringAsBytes(target, offset, "-Infinity")
+
 	let pos = offset
-	
+	let value = num // Use local variable to avoid parameter reassignment
+
 	// Handle negative numbers
-	if (num < 0) {
+	if (value < 0) {
 		pos = writeBytes(target, pos, STATIC_BYTES.MINUS)
-		num = -num
+		value = -value
 	}
-	
+
 	// Handle zero
-	if (num === 0) {
+	if (value === 0) {
 		return writeBytes(target, pos, STATIC_BYTES.ZERO)
 	}
-	
+
 	// Handle integers vs decimals
-	if (Number.isInteger(num) && num < Number.MAX_SAFE_INTEGER) {
+	if (Number.isInteger(value) && value < Number.MAX_SAFE_INTEGER) {
 		// Integer path - no decimal point, zero allocation approach
-		let temp = Math.floor(num)
-		
+		let temp = Math.floor(value)
+
 		// Count digits first
 		let digitCount = 0
 		let tempCount = temp
@@ -203,24 +201,23 @@ function writeNumberAsBytes(target: Uint8Array, offset: number, num: number): nu
 			digitCount++
 			tempCount = Math.floor(tempCount / 10)
 		}
-		
+
 		// Check buffer space
 		if (pos + digitCount > target.length) {
 			return pos // Not enough space
 		}
-		
+
 		// Write digits from right to left
 		let writePos = pos + digitCount - 1
 		while (temp > 0) {
 			target[writePos--] = 48 + (temp % 10)
 			temp = Math.floor(temp / 10)
 		}
-		
+
 		return pos + digitCount
-	} else {
-		// Fallback to string conversion for floats (to avoid complex decimal logic)
-		return writeStringAsBytes(target, offset, `${num}`)
 	}
+	// Fallback to string conversion for floats (to avoid complex decimal logic)
+	return writeStringAsBytes(target, offset, `${value}`)
 }
 
 function serializeValueToBuffer(target: Uint8Array, offset: number, value: unknown): number {
@@ -256,7 +253,8 @@ function serializeValueToBuffer(target: Uint8Array, offset: number, value: unkno
 			}
 
 			// Check for custom toString (Error objects, Date, etc.)
-			const customToString = (value as any).toString
+			const valueWithToString = value as { toString?: () => string }
+			const customToString = valueWithToString.toString
 			if (typeof customToString === "function" && customToString !== Object.prototype.toString) {
 				return writeStringAsBytes(target, offset, customToString.call(value))
 			}
@@ -285,7 +283,7 @@ function serializeValueToBuffer(target: Uint8Array, offset: number, value: unkno
 
 function buildAttributesToBuffer(target: Uint8Array, offset: number, attrs?: Record<string, unknown>): number {
 	if (!attrs) return offset
-	
+
 	let pos = offset
 	let isFirst = true
 
@@ -344,10 +342,13 @@ export function debug(message: string, attributes?: Record<string, unknown>): vo
 		pos = writeBytes(logView, pos, STATIC_BYTES.NEWLINE)
 	} else {
 		// Buffer is full, overwrite last byte with newline
-		logView[BUFFER_SIZE - 1] = STATIC_BYTES.NEWLINE[0]!
+		const newlineByte = STATIC_BYTES.NEWLINE[0]
+		if (newlineByte !== undefined) {
+			logView[BUFFER_SIZE - 1] = newlineByte
+		}
 		pos = BUFFER_SIZE
 	}
-	
+
 	flushBuffer(pos, false)
 }
 
@@ -377,10 +378,13 @@ export function info(message: string, attributes?: Record<string, unknown>): voi
 		pos = writeBytes(logView, pos, STATIC_BYTES.NEWLINE)
 	} else {
 		// Buffer is full, overwrite last byte with newline
-		logView[BUFFER_SIZE - 1] = STATIC_BYTES.NEWLINE[0]!
+		const newlineByte = STATIC_BYTES.NEWLINE[0]
+		if (newlineByte !== undefined) {
+			logView[BUFFER_SIZE - 1] = newlineByte
+		}
 		pos = BUFFER_SIZE
 	}
-	
+
 	flushBuffer(pos, false)
 }
 
@@ -410,10 +414,13 @@ export function warn(message: string, attributes?: Record<string, unknown>): voi
 		pos = writeBytes(logView, pos, STATIC_BYTES.NEWLINE)
 	} else {
 		// Buffer is full, overwrite last byte with newline
-		logView[BUFFER_SIZE - 1] = STATIC_BYTES.NEWLINE[0]!
+		const newlineByte = STATIC_BYTES.NEWLINE[0]
+		if (newlineByte !== undefined) {
+			logView[BUFFER_SIZE - 1] = newlineByte
+		}
 		pos = BUFFER_SIZE
 	}
-	
+
 	flushBuffer(pos, true)
 }
 
@@ -443,9 +450,12 @@ export function error(message: string, attributes?: Record<string, unknown>): vo
 		pos = writeBytes(logView, pos, STATIC_BYTES.NEWLINE)
 	} else {
 		// Buffer is full, overwrite last byte with newline
-		logView[BUFFER_SIZE - 1] = STATIC_BYTES.NEWLINE[0]!
+		const newlineByte = STATIC_BYTES.NEWLINE[0]
+		if (newlineByte !== undefined) {
+			logView[BUFFER_SIZE - 1] = newlineByte
+		}
 		pos = BUFFER_SIZE
 	}
-	
+
 	flushBuffer(pos, true)
 }
