@@ -299,13 +299,9 @@ function buildAttributesToBuffer(target: Uint8Array, offset: number, attrs?: Rec
 	return pos
 }
 
-function flushBuffer(length: number, isError: boolean): void {
+function flushBuffer(length: number): void {
 	const slice = logView.subarray(0, length)
-	if (isError) {
-		process.stderr.write(slice)
-	} else {
-		process.stdout.write(slice)
-	}
+	process.stderr.write(slice)
 }
 
 /**
@@ -349,7 +345,7 @@ export function debug(message: string, attributes?: Record<string, unknown>): vo
 		pos = BUFFER_SIZE
 	}
 
-	flushBuffer(pos, false)
+	flushBuffer(pos)
 }
 
 /**
@@ -385,7 +381,7 @@ export function info(message: string, attributes?: Record<string, unknown>): voi
 		pos = BUFFER_SIZE
 	}
 
-	flushBuffer(pos, false)
+	flushBuffer(pos)
 }
 
 /**
@@ -421,7 +417,7 @@ export function warn(message: string, attributes?: Record<string, unknown>): voi
 		pos = BUFFER_SIZE
 	}
 
-	flushBuffer(pos, true)
+	flushBuffer(pos)
 }
 
 /**
@@ -457,5 +453,5 @@ export function error(message: string, attributes?: Record<string, unknown>): vo
 		pos = BUFFER_SIZE
 	}
 
-	flushBuffer(pos, true)
+	flushBuffer(pos)
 }
