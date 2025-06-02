@@ -41,6 +41,12 @@ const logBuffer = new ArrayBuffer(BUFFER_SIZE)
 const logView = new Uint8Array(logBuffer)
 const encoder = new TextEncoder()
 
+// Pre-allocated buffers for number-to-string conversion
+const NUMBER_BUFFER_SIZE = 64
+const numberConversionBuffer = new ArrayBuffer(NUMBER_BUFFER_SIZE)
+const numberConversionView = new Uint8Array(numberConversionBuffer)
+const numberDecoder = new TextDecoder()
+
 const STATIC_BYTES = {
 	DEBUG: encoder.encode(" DEBUG "),
 	INFO: encoder.encode(" INFO "),
@@ -217,7 +223,14 @@ function writeNumberAsBytes(target: Uint8Array, offset: number, num: number): nu
 		return pos + digitCount
 	}
 	// Fallback to string conversion for floats (to avoid complex decimal logic)
-	return writeStringAsBytes(target, offset, `${value}`)
+	
+	// Use pre-allocated buffer to avoid template literal allocation
+	const result = encoder.encodeInto(value.toString(), numberConversionView)
+	const bytesToCopy = Math.min(result.written ?? 0, target.length - offset)
+	if (bytesToCopy > 0) {
+		target.set(numberConversionView.subarray(0, bytesToCopy), offset)
+	}
+	return offset + bytesToCopy
 }
 
 function serializeValueToBuffer(target: Uint8Array, offset: number, value: unknown): number {
