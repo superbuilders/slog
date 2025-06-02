@@ -1,6 +1,6 @@
 {
 	"name": "@superbuilders/slog",
-	"version": "3.0.0",
+	"version": "3.0.1",
 	"description": "High-performance structured logging library inspired by Go's slog",
 	"module": "dist/index.js",
 	"main": "dist/index.js",
