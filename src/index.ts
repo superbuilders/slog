@@ -45,7 +45,6 @@ const encoder = new TextEncoder()
 const NUMBER_BUFFER_SIZE = 64
 const numberConversionBuffer = new ArrayBuffer(NUMBER_BUFFER_SIZE)
 const numberConversionView = new Uint8Array(numberConversionBuffer)
-const numberDecoder = new TextDecoder()
 
 const STATIC_BYTES = {
 	DEBUG: encoder.encode(" DEBUG "),
@@ -223,7 +222,7 @@ function writeNumberAsBytes(target: Uint8Array, offset: number, num: number): nu
 		return pos + digitCount
 	}
 	// Fallback to string conversion for floats (to avoid complex decimal logic)
-	
+
 	// Use pre-allocated buffer to avoid template literal allocation
 	const result = encoder.encodeInto(value.toString(), numberConversionView)
 	const bytesToCopy = Math.min(result.written ?? 0, target.length - offset)
@@ -467,4 +466,14 @@ export function error(message: string, attributes?: Record<string, unknown>): vo
 	}
 
 	flushBuffer(pos)
+}
+
+/**
+ * Logger interface representing the structured logging functionality
+ */
+export interface Logger {
+	debug(message: string, attributes?: Record<string, unknown>): void
+	info(message: string, attributes?: Record<string, unknown>): void
+	warn(message: string, attributes?: Record<string, unknown>): void
+	error(message: string, attributes?: Record<string, unknown>): void
 }
