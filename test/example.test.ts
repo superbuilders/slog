@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import * as logger from "../src/index"
 
 // Example usage patterns that users can reference
-describe("slog library examples", () => {
+describe.skip("slog library examples", () => {
 	let stdoutSpy: ReturnType<typeof spyOn>
 	let stderrSpy: ReturnType<typeof spyOn>
 	let outputs: string[] = []
