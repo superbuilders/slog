@@ -1,6 +1,6 @@
 {
 	"name": "@superbuilders/slog",
-	"version": "4.0.3",
+	"version": "4.0.4",
 	"description": "Simple structured logging library",
 	"module": "dist/index.js",
 	"main": "dist/index.js",
