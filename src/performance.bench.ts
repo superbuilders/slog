@@ -1,28 +1,25 @@
 import { afterEach, beforeEach, describe, spyOn, test } from "bun:test"
 import * as logger from "./index"
 
-// Mock process.stdout and process.stderr to prevent console output during benchmarks
-beforeEach(() => {
-	const mockWrite = () => true
-	// @ts-ignore
-	process.stdout.write = mockWrite
-	// @ts-ignore
-	process.stderr.write = mockWrite
-})
-
-// Mock output to avoid I/O overhead during benchmarks
-let stdoutSpy: ReturnType<typeof spyOn>
-let stderrSpy: ReturnType<typeof spyOn>
+// Mock console methods to prevent output during benchmarks
+let logSpy: ReturnType<typeof spyOn>
+let infoSpy: ReturnType<typeof spyOn>
+let warnSpy: ReturnType<typeof spyOn>
+let errorSpy: ReturnType<typeof spyOn>
 
 beforeEach(() => {
-	stdoutSpy = spyOn(process.stdout, "write").mockImplementation(() => true)
-	stderrSpy = spyOn(process.stderr, "write").mockImplementation(() => true)
+	logSpy = spyOn(console, "log").mockImplementation(() => {})
+	infoSpy = spyOn(console, "info").mockImplementation(() => {})
+	warnSpy = spyOn(console, "warn").mockImplementation(() => {})
+	errorSpy = spyOn(console, "error").mockImplementation(() => {})
 	logger.setDefaultLogLevel(logger.INFO)
 })
 
 afterEach(() => {
-	stdoutSpy.mockRestore()
-	stderrSpy.mockRestore()
+	logSpy.mockRestore()
+	infoSpy.mockRestore()
+	warnSpy.mockRestore()
+	errorSpy.mockRestore()
 })
 
 // Benchmark runner inspired by Go's benchmark approach
@@ -34,8 +31,10 @@ function benchmark(name: string, fn: () => void, durationMs = 3000): void {
 		}
 
 		// Reset spies after warmup
-		stdoutSpy.mockClear()
-		stderrSpy.mockClear()
+		logSpy.mockClear()
+		infoSpy.mockClear()
+		warnSpy.mockClear()
+		errorSpy.mockClear()
 
 		// Actual benchmark
 		const startTime = performance.now()
