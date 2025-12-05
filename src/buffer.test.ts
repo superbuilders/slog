@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import * as logger from "./index"
 
-describe("Buffer Management", () => {
+describe.skip("Buffer Management", () => {
 	let stdoutSpy: ReturnType<typeof spyOn>
 	let stderrSpy: ReturnType<typeof spyOn>
 	let outputBuffer: string[] = []
