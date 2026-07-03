@@ -54,5 +54,8 @@
 			"types": "./src/*.ts",
 			"default": "./dist/*.js"
 		}
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }
