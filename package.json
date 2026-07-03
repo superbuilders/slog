@@ -1,6 +1,6 @@
 {
 	"name": "@superbuilders/slog",
-	"version": "4.0.5",
+	"version": "4.0.6",
 	"description": "Simple structured logging library",
 	"module": "dist/index.js",
 	"main": "dist/index.js",
@@ -46,7 +46,7 @@
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js"
+			"default": "./dist/index.js"
 		}
 	},
 	"imports": {
