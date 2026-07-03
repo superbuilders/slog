@@ -17,14 +17,18 @@
 
 /**
  * Log levels following slog convention.
- * Lower numbers indicate more verbose logging.
+ * Lower numbers indicate more verbose logging. A const object instead of an
+ * enum: enums are non-erasable syntax that bare Node's type stripping (and
+ * erasableSyntaxOnly) reject.
  */
-enum LogLevel {
-	DEBUG = -4,
-	INFO = 0,
-	WARN = 4,
-	ERROR = 8
-}
+const LogLevel = {
+	DEBUG: -4,
+	INFO: 0,
+	WARN: 4,
+	ERROR: 8
+} as const
+
+type LogLevel = (typeof LogLevel)[keyof typeof LogLevel]
 
 /**
  * Convenient constants for log levels
